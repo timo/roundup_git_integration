@@ -63,6 +63,12 @@ class Identifier(object):
         self.userid = None
         self.identifiers[(name, mail)] = self
 
+    def __str__(self):
+        return "(name=%s, mail=%s)" % (self.name, self.mail)
+
+    def __repr__(self):
+        return "(name=%s, mail=%s)" % (self.name, self.mail)
+
     @classmethod
     def make(cls, name, mail):
         if (name, mail) in cls.identifiers:
