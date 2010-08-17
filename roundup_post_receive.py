@@ -36,7 +36,9 @@ def call_output(*args, **kwargs):
     return po.stdout.read()
 
 def commits_from_revs(old, new):
-    output = call_output(["git", "log", '--format=%H%n%h%n%an%n%s%n%b%n.%n%n', "%s..%s" % (old, new)])
+    output = call_output(["git", "log", 
+                          '--format=%H%n%h%n%aN%n%aE%n%s%n%b%n.%n%n',
+                          "%s..%s" % (old, new)])
     return output.split("\n.\n\n")
 
 def number_from_ident(oident):
@@ -47,16 +49,70 @@ def number_from_ident(oident):
         raise ValueError("%s is not a valid identifier" % oident)
     return ident
 
+
+class CouldNotIdentifyError(Exception):
+    pass
+
+
+class Identifier(object):
+    identifiers = {}
+    def __init__(self, name, mail):
+        self.name = name
+        self.mail = mail
+        self.username = None
+        self.userid = None
+        self.identifiers[(name, mail)] = self
+
+    @classmethod
+    def make(cls, name, mail):
+        if (name, mail) in cls.identifiers:
+            return cls.identifiers[(name, mail)]
+        else:
+            return cls(name, mail)
+
+    def identify(self, db):
+        if self.name in usermap:
+            self.username = usermap[self.name]
+            self.userid = db.user.lookup(self.username)
+        else:
+            candidates = db.user.filter(db.user.list(), 
+                                        {"realname": self.name})
+            if len(candidates) == 1:
+                self.userid = candidates[0]
+            else:
+                candidates = db.user.filter(db.user.list(), 
+                                            {"address": self.mail})
+                if len(candidates) == 1:
+                    self.userid = candidates[0]
+                else:
+                    raise CouldNotIdentifyError("Could not find user %r in"
+                            "usermap or by realname or email (%r) in roundup."
+                            % (self.name, self.mail))
+
+            self.username = db.user.get(self.userid, "username")
+
+    @classmethod
+    def identify_all(cls, db):
+        for ident in cls.identifiers.itervalues():
+            ident.identify(db)
+
 def act_on_commits(commits):
     todo = []
+    idents = []
     for commit in commits:
         parts = commit.split("\n")
+        parts.reverse()
         if len(parts) < 3:
-            continue 
-        chash = parts[0]
-        cid = parts[1]
-        author = parts[2]
-        messagelines = parts[3:]
+            continue
+
+        chash = parts.pop()
+        cid = parts.pop()
+        author = parts.pop()
+        email = parts.pop()
+        parts.reverse()
+        messagelines = parts
+
+        ident = Identifier.make(author, email)
 
         bodylines = []
         actions = []
@@ -70,7 +126,8 @@ def act_on_commits(commits):
             body = "%s referenced this issue:\n%s" % (cid, "\n".join(bodylines))
             for action in actions:
                 parts = action.split(" ")
-                tododict = dict(body=body, author=author
+
+                tododict = dict(body=body, author=ident,
                                 setstatus=None)
 
                 if len(parts) > 1:
@@ -83,29 +140,22 @@ def act_on_commits(commits):
             
                 todo.append(tododict)
 
+
     if todo:
         print todo
         tracker = roundup.instance.open(tracker_home)
 
+        db = tracker.open("admin")
+        Identifier.identify_all(db)
+        db.close()
+
         for task in todo:
-            print task
-            if task["author"] not in usermap:
-                db = tracker.open("admin")
-                candidates = db.user.filter(db.user.list(), {"realname": task["author"]})
-                if len(candidates) != 1:
-                    print >> sys.stderr, "User %s not found in the database nor in the usermap. Consider adding it." % task["author"]
-                    db.close()
-                    continue
-                username = db.user.get(candidates[0], "username")
-                db.close()
-            else:
-                username = usermap[task["user"]]
-            db = tracker.open(username)
-            user_id = db.user.lookup(username)
+            user = task["author"]
+            db = tracker.open(user.username)
 
             issue_id = number_from_ident(task["issue"])
 
-            message_id = db.msg.create(author=user_id, 
+            message_id = db.msg.create(author=user.userid, 
                                     content=task["body"],
                                     date=roundup.date.Date())
             db.issue.set(issue_id, messages=db.issue.get(issue_id, "messages") + [message_id])
