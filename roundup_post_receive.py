@@ -126,7 +126,7 @@ def act_on_commits(commits):
         bodylines = []
         actions = []
         for line in messagelines:
-            if line.startswith("Issue") and line[len("Issue"):].isdigit():
+            if line.startswith("Issue") and line[len("Issue"):line.find(" ")].isdigit():
                 actions.append(line)
             else:
                 bodylines.append(line)
