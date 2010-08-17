@@ -39,7 +39,7 @@ def commits_from_revs(old, new):
     output = call_output(["git", "log", 
                           '--format=%H%n%h%n%aN%n%aE%n%s%n%b%n.%n%n',
                           "%s..%s" % (old, new)])
-    return output.split("\n.\n\n")
+    return output.split("\n.\n\n\n")
 
 def number_from_ident(oident):
     ident = oident
