@@ -161,8 +161,13 @@ def act_on_commits(commits):
             db.issue.set(issue_id, messages=db.issue.get(issue_id, "messages") + [message_id])
             
             if task["setstatus"]:
-                status_id = db.status.lookup(task["setstatus"])
-                db.issue.set(issue_id, status=status_id)
+                try:
+                    status_id = db.status.lookup(task["setstatus"])
+                    db.issue.set(issue_id, status=status_id)
+                except KeyError, e:
+                    print >> sys.stderr, (
+                        "Could not set the status of %s to %s (%r)"
+                        % (task["issue"], task["setstatus"], e))
 
             db.commit()
             db.close()
