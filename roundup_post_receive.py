@@ -124,6 +124,65 @@ class Identifier(object):
             except CouldNotIdentifyError, e:
                 print >> sys.stderr, e
 
+def execute_task(tracker, task):
+    """Execute the task on the tracker.
+
+    The task is a dictionary with the format:
+    {"author": Identifier instance (already identified),
+     "issue": roundup identifier of the issue (for instance "Issue23"),
+     "body": the body of the commit message from git.,
+     "setstatus": None or the name of the status to set (for instance "resolved")
+    }
+
+    If the db is already open at this point, the hook will deadlock.
+    """
+    user = task["author"]
+    if not user.username:
+        print >> sys.stderr, ("skipping task on %s for user %r"
+                % (task["issue"], task["author"]))
+        return False
+    try:
+        db = tracker.open(user.username)
+    except Exception, e:
+        print >> sys.stderr, (
+          "While trying to act on behalf of %r (roundup user %s): %r" %
+            (user, user.username, e))
+        return False
+
+    issue_id = number_from_ident(task["issue"])
+
+    try:
+        message_id = db.msg.create(author=user.userid,
+                                   content=task["body"],
+                                   date=roundup.date.Date())
+
+        db.issue.set(issue_id, messages=db.issue.get(issue_id, "messages") + [message_id])
+    except Exception, e:
+        print >> sys.stderr, (
+          "While trying to create the message on %s for user %r "
+          "(roundup user %s): %r" %
+            (task["issue"], user, user.username, e))
+        db.rollback()
+        db.close()
+        return False
+
+    if task["setstatus"]:
+        try:
+            status_id = db.status.lookup(task["setstatus"])
+            db.issue.set(issue_id, status=status_id)
+        except KeyError, e:
+            print >> sys.stderr, (
+                "Could not set the status of %s to %s (%r)"
+                % (task["issue"], task["setstatus"], e))
+
+            # we could rollback here, but this is non-critical.
+
+    db.commit()
+    db.close()
+
+    return True
+
+
 def act_on_commits(commits):
     """Go through all commits and execute the necessary actions."""
     todo = []
@@ -179,48 +238,8 @@ def act_on_commits(commits):
         db.close()
 
         for task in todo:
-            user = task["author"]
-            if not user.username:
-                print >> sys.stderr, ("skipping task on %s for user %r"
-                        % (task["issue"], task["author"]))
-                continue
-            try:
-                db = tracker.open(user.username)
-            except Exception, e:
-                print >> sys.stderr, (
-                  "While trying to act on behalf of %r (roundup user %s): %r" %
-                    (user, user.username, e))
-                continue
+            execute_task(tracker, task)
 
-            issue_id = number_from_ident(task["issue"])
-
-            try:
-                message_id = db.msg.create(author=user.userid, 
-                                           content=task["body"],
-                                           date=roundup.date.Date())
-            
-                db.issue.set(issue_id, messages=db.issue.get(issue_id, "messages") + [message_id])
-            except Exception, e:
-                print >> sys.stderr, (
-                  "While trying to create the message on %s for user %r "
-                  "(roundup user %s): %r" %
-                    (task["issue"], user, user.username, e))
-                db.rollback()
-                db.close()
-
-            if task["setstatus"]:
-                try:
-                    status_id = db.status.lookup(task["setstatus"])
-                    db.issue.set(issue_id, status=status_id)
-                except KeyError, e:
-                    print >> sys.stderr, (
-                        "Could not set the status of %s to %s (%r)"
-                        % (task["issue"], task["setstatus"], e))
-
-                    # we could rollback here, but this is non-critical.
-
-            db.commit()
-            db.close()
 
 if __name__ == "__main__":
     oldrev, newrev, refname = sys.argv[-3:]
