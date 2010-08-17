@@ -123,7 +123,7 @@ def act_on_commits(commits):
                 actions.append(line)
 
         if actions:
-            body = "%s referenced this issue:\n%s" % (cid, "\n".join(bodylines))
+            body = "git:%s referenced this issue:\n%s" % (cid, "\n".join(bodylines))
             for action in actions:
                 parts = action.split(" ")
 
