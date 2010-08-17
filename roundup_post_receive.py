@@ -32,16 +32,26 @@ from subprocess import Popen, PIPE
 import roundup.instance, roundup.date
 
 def call_output(*args, **kwargs):
+    """Call an external program and return the output from stdout."""
     po = Popen(*args, stdout=PIPE, **kwargs)
     return po.stdout.read()
 
 def commits_from_revs(old, new):
+    """Get all commits from `old` to `new`.
+
+    The format of the commits returned is this:
+    [complete hash, abbreviated hash, 
+     author fullname, author email,
+     body of the message]"""
     output = call_output(["git", "log", 
                           '--format=%H%n%h%n%aN%n%aE%n%s%n%b%n.%n%n',
                           "%s..%s" % (old, new)])
     return output.split("\n.\n\n\n")
 
 def number_from_ident(oident):
+    """Get the number of an identifier.
+
+    For instance, turn Issue42 into just 42"""
     ident = oident
     while not ident.isdigit() and ident:
         ident = ident[1:]
@@ -51,10 +61,14 @@ def number_from_ident(oident):
 
 
 class CouldNotIdentifyError(Exception):
+    """The user could not be found in the usermap, or the roundup database."""
     pass
 
 
 class Identifier(object):
+    """Identifies a user.
+    
+    Use Identifier.make(name, mail) to get an instance."""
     identifiers = {}
     def __init__(self, name, mail):
         self.name = name
@@ -71,6 +85,7 @@ class Identifier(object):
 
     @classmethod
     def make(cls, name, mail):
+        """Get an identifier object for the user."""
         if (name, mail) in cls.identifiers:
             return cls.identifiers[(name, mail)]
         else:
@@ -99,6 +114,10 @@ class Identifier(object):
 
     @classmethod
     def identify_all(cls, db):
+        """Identifies all identifiers in the system using the database.
+
+        The database should be opened as admin, so that the
+        permissions are OK."""
         for ident in cls.identifiers.itervalues():
             try:
                 ident.identify(db)
@@ -106,6 +125,7 @@ class Identifier(object):
                 print >> sys.stderr, e
 
 def act_on_commits(commits):
+    """Go through all commits and execute the necessary actions."""
     todo = []
     idents = []
     for commit in commits:
