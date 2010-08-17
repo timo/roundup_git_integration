@@ -100,7 +100,10 @@ class Identifier(object):
     @classmethod
     def identify_all(cls, db):
         for ident in cls.identifiers.itervalues():
-            ident.identify(db)
+            try:
+                ident.identify(db)
+            except CouldNotIdentifyError, e:
+                print >> sys.stderr, e
 
 def act_on_commits(commits):
     todo = []
