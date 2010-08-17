@@ -19,7 +19,7 @@ tracker_home = "./demo"
 ## usermap
 # maps from git commiter name to roundup user name
 # you only have to use this if the users don't have their full name
-# correctly set in roundup.
+# or email address correctly set in roundup.
 
 usermap = {"":""
         ,"Timo Paulssen": "timo"
