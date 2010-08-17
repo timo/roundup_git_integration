@@ -160,15 +160,34 @@ def act_on_commits(commits):
 
         for task in todo:
             user = task["author"]
-            db = tracker.open(user.username)
+            if not user.username:
+                print >> sys.stderr, ("skipping task on %s for user %r"
+                        % (task["issue"], task["author"]))
+                continue
+            try:
+                db = tracker.open(user.username)
+            except Exception, e:
+                print >> sys.stderr, (
+                  "While trying to act on behalf of %r (roundup user %s): %r" %
+                    (user, user.username, e))
+                continue
 
             issue_id = number_from_ident(task["issue"])
 
-            message_id = db.msg.create(author=user.userid, 
-                                    content=task["body"],
-                                    date=roundup.date.Date())
-            db.issue.set(issue_id, messages=db.issue.get(issue_id, "messages") + [message_id])
+            try:
+                message_id = db.msg.create(author=user.userid, 
+                                           content=task["body"],
+                                           date=roundup.date.Date())
             
+                db.issue.set(issue_id, messages=db.issue.get(issue_id, "messages") + [message_id])
+            except Exception, e:
+                print >> sys.stderr, (
+                  "While trying to create the message on %s for user %r "
+                  "(roundup user %s): %r" %
+                    (task["issue"], user, user.username, e))
+                db.rollback()
+                db.close()
+
             if task["setstatus"]:
                 try:
                     status_id = db.status.lookup(task["setstatus"])
@@ -177,6 +196,8 @@ def act_on_commits(commits):
                     print >> sys.stderr, (
                         "Could not set the status of %s to %s (%r)"
                         % (task["issue"], task["setstatus"], e))
+
+                    # we could rollback here, but this is non-critical.
 
             db.commit()
             db.close()
