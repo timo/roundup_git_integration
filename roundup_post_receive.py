@@ -18,6 +18,8 @@ tracker_home = "./demo"
 
 ## usermap
 # maps from git commiter name to roundup user name
+# you only have to use this if the users don't have their full name
+# correctly set in roundup.
 
 usermap = {"":""
         ,"Timo Paulssen": "timo"
@@ -65,15 +67,10 @@ def act_on_commits(commits):
                 actions.append(line)
 
         if actions:
-            if author not in usermap:
-                raise ValueError("The user %s was not found in the usermap." % author)
-            else:
-                r_user = usermap[author]
-
             body = "%s referenced this issue:\n%s" % (cid, "\n".join(bodylines))
             for action in actions:
                 parts = action.split(" ")
-                tododict = dict(user=r_user, body=body,
+                tododict = dict(body=body, author=author
                                 setstatus=None)
 
                 if len(parts) > 1:
@@ -92,8 +89,19 @@ def act_on_commits(commits):
 
         for task in todo:
             print task
-            db = tracker.open(task["user"])
-            user_id = db.user.lookup(task["user"])
+            if task["author"] not in usermap:
+                db = tracker.open("admin")
+                candidates = db.user.filter(db.user.list(), {"realname": task["author"]})
+                if len(candidates) != 1:
+                    print >> sys.stderr, "User %s not found in the database nor in the usermap. Consider adding it." % task["author"]
+                    db.close()
+                    continue
+                username = db.user.get(candidates[0], "username")
+                db.close()
+            else:
+                username = usermap[task["user"]]
+            db = tracker.open(username)
+            user_id = db.user.lookup(username)
 
             issue_id = number_from_ident(task["issue"])
 
