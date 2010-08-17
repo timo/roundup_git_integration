@@ -126,10 +126,10 @@ def act_on_commits(commits):
         bodylines = []
         actions = []
         for line in messagelines:
-            if not line.startswith("Issue"):
-                bodylines.append(line)
-            else:
+            if line.startswith("Issue") and line[len("Issue"):].isdigit():
                 actions.append(line)
+            else:
+                bodylines.append(line)
 
         if actions:
             body = "git:%s referenced this issue:\n%s" % (cid, "\n".join(bodylines))
