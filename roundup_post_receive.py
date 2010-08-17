@@ -127,17 +127,17 @@ def act_on_commits(commits):
             for action in actions:
                 parts = action.split(" ")
 
-                tododict = dict(body=body, author=ident,
-                                setstatus=None)
+                tododict = dict(author=ident, setstatus=None)
 
                 if len(parts) > 1:
                     issue, newstatus = parts
-                    tododict.update(setstatus=newstatus)
+                    tododict.update(setstatus=newstatus, body=body + "\n" + action)
                 else:
                     issue = parts[0]
+                    tododict.update(body=body)
 
                 tododict.update(issue=issue)
-            
+
                 todo.append(tododict)
 
 
