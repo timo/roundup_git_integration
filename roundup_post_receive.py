@@ -33,7 +33,8 @@ import roundup.instance, roundup.date
 
 def call_output(*args, **kwargs):
     """Call an external program and return the output from stdout."""
-    po = Popen(*args, stdout=PIPE, **kwargs)
+    kwargs.update(stdout=PIPE)
+    po = Popen(*args, **kwargs)
     return po.stdout.read()
 
 def commits_from_revs(old, new):
