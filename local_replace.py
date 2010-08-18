@@ -2,8 +2,8 @@ cgiturl = "http://example.com/cgit/cgit.cgi/exampleproject/commit/?id="
 
 import re
 class CustomTags:
-    substitute = [r"(?P<kw>git):(?P<id>[a-fA-F0-9]+)",
-                  '%(kw)s:<a href="' + cgiturl + '%(id)s">%(id)s</a>']
+    substitute = [(r"(?P<kw>git):(?P<id>[a-fA-F0-9]+)",
+                  '%(kw)s:<a href="' + cgiturl + '%(id)s">%(id)s</a>')]
 
     @classmethod
     def replace(cls, text):
