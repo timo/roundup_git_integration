@@ -242,5 +242,5 @@ def act_on_commits(commits):
 
 
 if __name__ == "__main__":
-    oldrev, newrev, refname = sys.argv[-3:]
+    oldrev, newrev, refname = sys.stdin.readline().split(" ")[-3:]
     act_on_commits(commits_from_revs(oldrev, newrev))
