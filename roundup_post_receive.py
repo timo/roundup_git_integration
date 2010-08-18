@@ -45,7 +45,7 @@ def commits_from_revs(old, new):
      author fullname, author email,
      body of the message]"""
     output = call_output(["git", "log", 
-                          '--format=%H%n%h%n%aN%n%aE%n%s%n%b%n.%n%n',
+                          '--pretty=format:%H%n%h%n%aN%n%ae%n%s%n%b%n.%n%n',
                           "%s..%s" % (old, new)])
     return output.split("\n.\n\n\n")
 
